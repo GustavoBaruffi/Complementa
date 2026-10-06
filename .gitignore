@@ -1,0 +1,19 @@
+# Configuracoes locais e segredos
+.env
+.env.*
+!.env.example
+
+# Editores
+.vscode/
+.idea/
+
+# Arquivos temporarios e logs
+*.log
+*.tmp
+*.swp
+*~
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+Desktop.ini
