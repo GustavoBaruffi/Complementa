@@ -177,7 +177,9 @@ ORDER BY e.data_evento ASC;
 -- DQL: consultar as horas aprovadas de um aluno
 SELECT a.id_aluno, a.nome, COALESCE(SUM(vh.horas_validadas), 0) AS total_horas
 FROM aluno AS a
-LEFT JOIN validacao_horas AS vh ON vh.id_aluno = a.id_aluno
+LEFT JOIN inscricao AS i ON i.id_aluno = a.id_aluno
+LEFT JOIN certificado AS c ON c.id_inscricao = i.id_inscricao
+LEFT JOIN validacao_horas AS vh ON vh.id_certificado = c.id_certificado
   AND vh.status = 'aprovado'
 WHERE a.id_aluno = 1
 GROUP BY a.id_aluno, a.nome;
