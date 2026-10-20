@@ -15,8 +15,7 @@ try {
         echo $tabela . ': ' . $consulta->fetchColumn() . " registro(s)\n";
     }
     echo "Conexão e leitura: OK (nenhum dado alterado).\n";
-    // Uma conexão válida não garante que o schema corresponda às consultas.
-    $esperadas = [
+        $esperadas = [
         'aluno' => ['id_aluno', 'nome', 'email', 'senha_hash', 'curso', 'matricula', 'id_instituicao', 'data_nascimento', 'cidade', 'meta_horas'],
         'organizador' => ['id_organizador', 'nome', 'email', 'senha_hash', 'tipo', 'cidade', 'telefone'],
         'evento' => ['id_evento', 'id_organizador', 'id_categoria', 'titulo', 'descricao', 'data_evento', 'horario_inicio', 'horario_termino', 'local_evento', 'carga_horaria', 'modalidade', 'cidade', 'link', 'status', 'validade_horas'],

@@ -1,4 +1,3 @@
-// Chamado por eventos_mysql.py; credenciais fictícias chegam apenas por stdin.
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';

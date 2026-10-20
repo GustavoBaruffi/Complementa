@@ -11,8 +11,7 @@ $perfil = campo('perfil') ?: 'aluno';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificarCsrf();
     $senha = is_string($_POST['senha'] ?? null) ? $_POST['senha'] : '';
-    // Nomes de tabelas/colunas vêm exclusivamente desta lista fixa.
-    $perfis = ['aluno' => 'id_aluno', 'organizador' => 'id_organizador'];
+        $perfis = ['aluno' => 'id_aluno', 'organizador' => 'id_organizador'];
     if (!isset($perfis[$perfil]) || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150 || $senha === '' || strlen($senha) > 72) {
         $erros[] = 'Confira o perfil, o e-mail e a senha.';
     } else {

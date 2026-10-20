@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// Serviço usado pelo comando da equipe; não publica cadastro na web.
 function criarOrganizador(PDO $pdo, array $dados): int
 {
     $tipos = ['Faculdade', 'Empresa', 'Prefeitura', 'ONG', 'Associação', 'Instituição', 'Outro'];

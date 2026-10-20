@@ -83,8 +83,7 @@ function exigirOrganizador(): array
 
 function falhaBanco(Throwable $erro): string
 {
-    // Registra códigos e classificação, nunca SQL, valores ou mensagem bruta.
-    $codigoMysql = $erro instanceof PDOException ? (int) ($erro->errorInfo[1] ?? 0) : 0;
+        $codigoMysql = $erro instanceof PDOException ? (int) ($erro->errorInfo[1] ?? 0) : 0;
     $causas = [
         1045 => 'autenticacao_recusada',
         1049 => 'banco_inexistente',

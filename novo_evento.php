@@ -24,8 +24,7 @@ try {
             $erros[] = 'Selecione uma categoria existente.';
         }
         if (!$erros) {
-            // O organizador vem da sessão; nenhum ID enviado pelo navegador é usado.
-            $consulta = $pdo->prepare('INSERT INTO evento
+                        $consulta = $pdo->prepare('INSERT INTO evento
                 (id_organizador,id_categoria,titulo,descricao,data_evento,horario_inicio,horario_termino,
                  local_evento,carga_horaria,modalidade,cidade,link,status,validade_horas)
                 VALUES (:organizador,:categoria,:titulo,:descricao,:data,:inicio,:termino,
