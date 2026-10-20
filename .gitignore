@@ -17,3 +17,6 @@
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Arquivos temporarios dos testes HTTP
+/.test-runtime/

@@ -7,7 +7,8 @@ function obterConexao(): PDO
     $port = getenv('DB_PORT') ?: '3306';
     $database = getenv('DB_NAME') ?: 'complementa';
     $username = getenv('DB_USER') ?: 'root';
-    $password = getenv('DB_PASSWORD') ?: '';
+    $password = getenv('DB_PASSWORD');
+    $password = $password === false ? '' : $password;
 
     $dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4";
 

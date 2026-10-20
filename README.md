@@ -89,8 +89,8 @@ MySQL.
 
 ## Status do desenvolvimento
 
-O repositório está na primeira fase de implementação. Até o momento, estão
-confirmados:
+O repositório contém a base inicial e a implementação da Sprint 2. Até o momento, estão
+implementados ou documentados:
 
 - escopo geral e fluxo principal definidos;
 - planejamento das seis sprints documentado;
@@ -101,10 +101,19 @@ confirmados:
 - layout inicial responsivo e navegação principal implementados;
 - schema inicial do MySQL e conexão PDO configurável por ambiente implementados.
 
-As funcionalidades de autenticação, cadastros, inscrições, certificados e
-validação serão implementadas nas próximas sprints. A presença de uma tela ou
-tabela no repositório **não significa que o fluxo completo correspondente
-esteja implementado**.
+- cadastro de alunos, login dos dois perfis e logout com sessões;
+- senhas com `password_hash()` e `password_verify()`;
+- listagem e detalhes de eventos consultando MySQL;
+- cadastro de eventos e listagem própria para organizadores autenticados;
+- criação de organizadores pela equipe, exclusivamente via terminal.
+
+Cadastro/login de alunos, criação/login de organizadores e cadastro/listagem/
+detalhes de eventos foram testados com sucesso no MySQL local. A interface
+também foi testada no Edge em desktop e celular. As migrações autorizadas
+de autenticação foram aplicadas pelo responsável; `banco.sql` foi preservado.
+Veja [o relatório final da Sprint 2](./docs/resultado-sprint-2.md).
+Inscrições, certificados e validação de horas continuam para as próximas sprints.
+Consulte [execução e testes da Sprint 2](./docs/sprint-2.md).
 
 ## Estrutura do repositório
 
@@ -114,7 +123,18 @@ esteja implementado**.
 ├── README.md    # Documentação do projeto
 ├── banco.sql    # Script do banco de dados
 ├── conexao.php  # Conexão entre PHP e MySQL
-├── index.php    # Página inicial da aplicação
+├── app.php      # Sessões, CSRF, layout compartilhado e consultas de eventos
+├── cadastro.php # Cadastro público de alunos
+├── login.php    # Login de alunos e organizadores
+├── logout.php   # Encerramento da sessão por POST
+├── eventos.php  # Lista de eventos do banco
+├── evento.php   # Detalhes de um evento
+├── meus_eventos.php # Eventos do organizador autenticado
+├── novo_evento.php  # Cadastro de evento
+├── index.php    # Página inicial com próximos eventos do banco
+├── tools/      # Comandos locais de configuração e cadastro de organizadores
+├── tests/      # Testes HTTP sem acesso ao banco existente
+├── docs/       # Instruções de execução e testes
 ├── script.js    # Interações e validações no navegador
 └── style.css    # Estilos e identidade visual
 ```
@@ -250,8 +270,9 @@ horas, revisão da interface, responsividade e teste do fluxo completo.
 Requisitos: PHP 8.1+, MySQL 8+ e um servidor web (Apache, Nginx ou o servidor
 embutido do PHP).
 
-1. Crie o banco e as tabelas executando [`banco.sql`](./banco.sql) no MySQL:
-  `mysql -u root -p < banco.sql`.
+1. **Somente em uma instalação nova**, crie o banco e as tabelas executando
+  [`banco.sql`](./banco.sql) no MySQL: `mysql -u root -p < banco.sql`.
+  Se o banco já existe, não execute esse script novamente.
 2. Configure, de preferência por variáveis de ambiente, `DB_HOST`, `DB_PORT`,
   `DB_NAME`, `DB_USER` e `DB_PASSWORD`. Os valores padrão estão documentados
   em [`conexao.php`](./conexao.php) para desenvolvimento local.
@@ -261,9 +282,18 @@ embutido do PHP).
   ```
 4. Acesse `http://localhost:8000` no navegador.
 
-A página inicial da sprint 1 é navegável sem conexão com o banco. As operações
-de persistência serão conectadas nas próximas sprints; não há credenciais de
-teste versionadas no repositório.
+As páginas de eventos e a página inicial agora consultam o MySQL. Se a conexão
+falhar, mostram uma mensagem genérica sem expor credenciais. Não há credenciais
+de teste versionadas. No Windows, o iniciador seguro solicita a senha sem
+gravá-la em arquivo:
+
+```powershell
+.\tools\servir_local.ps1 -DbUser root -Verificar
+.\tools\servir_local.ps1 -DbUser root
+```
+
+O iniciador habilita `pdo_mysql` para o processo PHP caso necessário. Veja
+[o roteiro completo](./docs/sprint-2.md) para configuração e testes.
 
 ## Como contribuir
 
