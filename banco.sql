@@ -40,7 +40,7 @@ CREATE TABLE evento (
     data_evento DATETIME NOT NULL,
     local_evento VARCHAR(180) NOT NULL,
     horas DECIMAL(5,2) NOT NULL,
-    status ENUM('disponivel', 'encerrado', 'cancelado') NOT NULL DEFAULT 'disponivel',
+    status VARCHAR(20) NOT NULL DEFAULT 'disponivel',
     CONSTRAINT fk_evento_organizador FOREIGN KEY (id_organizador)
         REFERENCES organizador (id_organizador),
     CONSTRAINT fk_evento_categoria FOREIGN KEY (id_categoria)
@@ -52,12 +52,12 @@ CREATE TABLE inscricao (
     id_aluno INT UNSIGNED NOT NULL,
     id_evento INT UNSIGNED NOT NULL,
     data_inscricao DATE NOT NULL,
-    status ENUM('realizada', 'cancelada', 'concluida') NOT NULL DEFAULT 'realizada',
+    status VARCHAR(20) NOT NULL DEFAULT 'realizada',
     UNIQUE KEY uq_inscricao_aluno_evento (id_aluno, id_evento),
     CONSTRAINT fk_inscricao_aluno FOREIGN KEY (id_aluno)
-        REFERENCES aluno (id_aluno) ON DELETE CASCADE,
+        REFERENCES aluno (id_aluno),
     CONSTRAINT fk_inscricao_evento FOREIGN KEY (id_evento)
-        REFERENCES evento (id_evento) ON DELETE CASCADE
+        REFERENCES evento (id_evento)
 );
 
 CREATE TABLE certificado (
@@ -65,9 +65,9 @@ CREATE TABLE certificado (
     id_inscricao INT UNSIGNED NOT NULL UNIQUE,
     arquivo VARCHAR(255) NOT NULL,
     enviado_em TIMESTAMP NOT NULL,
-    status ENUM('pendente', 'aprovado', 'recusado') NOT NULL DEFAULT 'pendente',
+    status VARCHAR(20) NOT NULL DEFAULT 'pendente',
     CONSTRAINT fk_certificado_inscricao FOREIGN KEY (id_inscricao)
-        REFERENCES inscricao (id_inscricao) ON DELETE CASCADE
+        REFERENCES inscricao (id_inscricao)
 );
 
 CREATE TABLE validacao_horas (
@@ -75,11 +75,11 @@ CREATE TABLE validacao_horas (
     id_certificado INT UNSIGNED NOT NULL UNIQUE,
     id_instituicao INT UNSIGNED NOT NULL,
     horas_validadas DECIMAL(5,2) NOT NULL,
-    status ENUM('pendente', 'aprovado', 'recusado') NOT NULL DEFAULT 'pendente',
+    status VARCHAR(20) NOT NULL DEFAULT 'pendente',
     observacao TEXT NULL,
     validado_em TIMESTAMP NULL,
     CONSTRAINT fk_validacao_certificado FOREIGN KEY (id_certificado)
-        REFERENCES certificado (id_certificado) ON DELETE CASCADE,
+        REFERENCES certificado (id_certificado),
     CONSTRAINT fk_validacao_instituicao FOREIGN KEY (id_instituicao)
         REFERENCES instituicao (id_instituicao)
 );
@@ -92,8 +92,8 @@ CREATE TABLE avaliacao (
     comentario TEXT NULL,
     UNIQUE KEY uq_avaliacao_aluno_evento (id_aluno, id_evento),
     CONSTRAINT ck_avaliacao_nota CHECK (nota BETWEEN 1 AND 5),
-    CONSTRAINT fk_avaliacao_aluno FOREIGN KEY (id_aluno) REFERENCES aluno (id_aluno) ON DELETE CASCADE,
-    CONSTRAINT fk_avaliacao_evento FOREIGN KEY (id_evento) REFERENCES evento (id_evento) ON DELETE CASCADE
+    CONSTRAINT fk_avaliacao_aluno FOREIGN KEY (id_aluno) REFERENCES aluno (id_aluno),
+    CONSTRAINT fk_avaliacao_evento FOREIGN KEY (id_evento) REFERENCES evento (id_evento)
 );
 
 CREATE TABLE notificacao (
@@ -103,7 +103,7 @@ CREATE TABLE notificacao (
     mensagem TEXT NOT NULL,
     lida BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_notificacao_aluno FOREIGN KEY (id_aluno)
-        REFERENCES aluno (id_aluno) ON DELETE CASCADE
+        REFERENCES aluno (id_aluno)
 );
 
 INSERT INTO categoria (nome) VALUES
