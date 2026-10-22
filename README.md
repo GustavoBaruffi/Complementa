@@ -99,21 +99,20 @@ implementados ou documentados:
 - diagrama de casos de uso apresentado;
 - repositório e branches iniciais criados;
 - layout inicial responsivo e navegação principal implementados;
-- schema inicial do MySQL e conexão PDO configurável por ambiente implementados.
+- schema físico do MySQL e conexão PDO configurável por ambiente implementados.
 
 - cadastro de alunos, login dos dois perfis e logout com sessões;
 - senhas com `password_hash()` e `password_verify()`;
 - listagem e detalhes de eventos consultando MySQL;
 - cadastro de eventos e listagem própria para organizadores autenticados;
-- criação de organizadores pela equipe, exclusivamente via terminal.
+- criação de organizadores pela equipe, pela área de gestão.
 
 Cadastro/login de alunos, criação/login de organizadores e cadastro/listagem/
 detalhes de eventos foram testados com sucesso no MySQL local. A interface
 também foi testada no Edge em desktop e celular. As migrações autorizadas
 de autenticação foram aplicadas pelo responsável; `banco.sql` foi preservado.
-Veja [o relatório final da Sprint 2](./docs/resultado-sprint-2.md).
-Inscrições, certificados e validação de horas continuam para as próximas sprints.
-Consulte [execução e testes da Sprint 2](./docs/sprint-2.md).
+Inscrições, certificados, análise institucional, horas, avaliações, notificações
+e manutenção de cadastros foram acrescentados na Fase 2.
 
 ## Estrutura do repositório
 
@@ -132,9 +131,8 @@ Consulte [execução e testes da Sprint 2](./docs/sprint-2.md).
 ├── meus_eventos.php # Eventos do organizador autenticado
 ├── novo_evento.php  # Cadastro de evento
 ├── index.php    # Página inicial com próximos eventos do banco
-├── tools/      # Comandos locais de configuração e cadastro de organizadores
-├── tests/      # Testes HTTP sem acesso ao banco existente
-├── docs/       # Instruções de execução e testes
+├── arquivo.php # Download controlado de certificados
+├── uploads/    # Arquivos enviados, fora do controle de acesso público
 ├── script.js    # Interações e validações no navegador
 └── style.css    # Estilos e identidade visual
 ```
@@ -168,8 +166,9 @@ esperados estão:
 - instituições realizam validações de horas;
 - avaliações e notificações complementam o fluxo da plataforma.
 
-O modelo físico definitivo será refletido em [`banco.sql`](./banco.sql) quando
-for implementado e validado.
+O modelo físico atualizado está em [`banco.sql`](./banco.sql). Além das dez
+entidades principais, `usuario_gestao` guarda as contas da equipe e dos analistas
+institucionais, e `certificado_conteudo` armazena os arquivos com acesso controlado.
 
 ### Consultas e manipulação de dados
 
@@ -183,39 +182,40 @@ dados conforme as necessidades de cada funcionalidade:
   para cadastrar, alterar e remover registros de acordo com as regras do
   sistema.
 
-Os exemplos abaixo são ilustrativos e deverão ser ajustados aos nomes das
-tabelas e colunas definidos na modelagem física:
+Os exemplos abaixo usam os nomes e os estados definidos no schema atual:
 
 ```sql
 -- DQL: consultar eventos disponíveis por categoria e data
-SELECT e.id_evento, e.nome, e.data_evento, c.nome AS categoria
+SELECT e.id_evento, e.titulo, e.data_evento, c.nome AS categoria
 FROM evento AS e
 JOIN categoria AS c ON c.id_categoria = e.id_categoria
-WHERE e.status = 'disponivel'
+WHERE e.status = 'Publicado'
 ORDER BY e.data_evento ASC;
 
 -- DQL: consultar as horas aprovadas de um aluno
-SELECT a.id_aluno, a.nome, COALESCE(SUM(vh.horas_validadas), 0) AS total_horas
+SELECT a.id_aluno, a.nome, COALESCE(SUM(vh.horas_aprovadas), 0) AS total_horas
 FROM aluno AS a
 LEFT JOIN inscricao AS i ON i.id_aluno = a.id_aluno
 LEFT JOIN certificado AS c ON c.id_inscricao = i.id_inscricao
 LEFT JOIN validacao_horas AS vh ON vh.id_certificado = c.id_certificado
-  AND vh.status = 'aprovado'
+  AND vh.status IN ('Aprovada', 'Parcialmente aprovada')
 WHERE a.id_aluno = 1
 GROUP BY a.id_aluno, a.nome;
 
 -- DML - INSERT: cadastrar a inscrição de um aluno em um evento
-INSERT INTO inscricao (id_aluno, id_evento, data_inscricao, status)
-VALUES (1, 10, CURRENT_DATE, 'realizada');
+INSERT INTO inscricao (id_aluno, id_evento, data_inscricao, status, presenca)
+VALUES (1, 10, NOW(), 'Confirmada', FALSE);
 
 -- DML - UPDATE: aprovar a validação de um certificado
 UPDATE validacao_horas
-SET status = 'aprovado',
+SET status = 'Aprovada',
+    horas_aprovadas = horas_solicitadas,
     observacao = 'Certificado conferido.'
 WHERE id_validacao = 25;
 
--- DML - DELETE: cancelar uma inscrição específica
-DELETE FROM inscricao
+-- DML - UPDATE: cancelar uma inscrição específica
+UPDATE inscricao
+SET status = 'Cancelada'
 WHERE id_inscricao = 42
   AND id_aluno = 1;
 ```
@@ -278,22 +278,13 @@ embutido do PHP).
   em [`conexao.php`](./conexao.php) para desenvolvimento local.
 3. Inicie o servidor embutido na raiz do projeto:
   ```bash
-  php -S localhost:8000
+  php -S localhost:8000 router.php
   ```
 4. Acesse `http://localhost:8000` no navegador.
 
 As páginas de eventos e a página inicial agora consultam o MySQL. Se a conexão
 falhar, mostram uma mensagem genérica sem expor credenciais. Não há credenciais
-de teste versionadas. No Windows, o iniciador seguro solicita a senha sem
-gravá-la em arquivo:
-
-```powershell
-.\tools\servir_local.ps1 -DbUser root -Verificar
-.\tools\servir_local.ps1 -DbUser root
-```
-
-O iniciador habilita `pdo_mysql` para o processo PHP caso necessário. Veja
-[o roteiro completo](./docs/sprint-2.md) para configuração e testes.
+versionadas no projeto.
 
 ## Como contribuir
 

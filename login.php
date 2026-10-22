@@ -11,13 +11,15 @@ $perfil = campo('perfil') ?: 'aluno';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificarCsrf();
     $senha = is_string($_POST['senha'] ?? null) ? $_POST['senha'] : '';
-        $perfis = ['aluno' => 'id_aluno', 'organizador' => 'id_organizador'];
+        $perfis = ['aluno' => 'id_aluno', 'organizador' => 'id_organizador', 'equipe' => 'id_usuario', 'instituicao' => 'id_usuario'];
     if (!isset($perfis[$perfil]) || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150 || $senha === '' || strlen($senha) > 72) {
         $erros[] = 'Confira o perfil, o e-mail e a senha.';
     } else {
         try {
-            $consulta = obterConexao()->prepare("SELECT {$perfis[$perfil]} AS id, nome, senha_hash FROM {$perfil} WHERE email = :email");
-            $consulta->execute(['email' => $email]);
+            $gestao = in_array($perfil, ['equipe','instituicao'], true);
+            $tabela = $gestao ? 'usuario_gestao' : $perfil;
+            $consulta = obterConexao()->prepare("SELECT {$perfis[$perfil]} AS id, nome, senha_hash FROM {$tabela} WHERE email = :email" . ($gestao ? ' AND perfil = :perfil' : ''));
+            $consulta->execute($gestao ? ['email'=>$email,'perfil'=>$perfil] : ['email'=>$email]);
             $conta = $consulta->fetch();
             if ($conta && is_string($conta['senha_hash']) && password_verify($senha, $conta['senha_hash'])) {
                 session_regenerate_id(true);
@@ -26,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'csrf' => bin2hex(random_bytes(32)),
                     'aviso' => 'Bem-vindo(a), ' . $conta['nome'] . '!',
                 ];
-                redirecionar($perfil === 'organizador' ? 'meus_eventos.php' : 'eventos.php');
+                redirecionar($perfil === 'organizador' ? 'meus_eventos.php' : ($gestao ? 'painel.php' : 'eventos.php'));
             }
             $erros[] = 'Perfil, e-mail ou senha incorretos.';
         } catch (PDOException $erro) {
@@ -46,6 +48,8 @@ cabecalho('Entrar');
             <select id="perfil" name="perfil" required>
                 <option value="aluno" <?= $perfil === 'aluno' ? 'selected' : '' ?>>Aluno</option>
                 <option value="organizador" <?= $perfil === 'organizador' ? 'selected' : '' ?>>Organizador</option>
+                <option value="instituicao" <?= $perfil === 'instituicao' ? 'selected' : '' ?>>Instituição</option>
+                <option value="equipe" <?= $perfil === 'equipe' ? 'selected' : '' ?>>Equipe</option>
             </select>
             <label for="email">E-mail</label>
             <input id="email" name="email" type="email" autocomplete="username" maxlength="150" required value="<?= escapar($email) ?>">

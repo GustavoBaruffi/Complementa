@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/conexao.php';
+require_once __DIR__ . '/fluxos.php';
 
 date_default_timezone_set('America/Sao_Paulo');
 if (session_status() === PHP_SESSION_NONE) {
@@ -83,7 +84,7 @@ function exigirOrganizador(): array
 
 function falhaBanco(Throwable $erro): string
 {
-        $codigoMysql = $erro instanceof PDOException ? (int) ($erro->errorInfo[1] ?? 0) : 0;
+    $codigoMysql = $erro instanceof PDOException ? (int) ($erro->errorInfo[1] ?? 0) : 0;
     $causas = [
         1045 => 'autenticacao_recusada',
         1049 => 'banco_inexistente',
@@ -147,6 +148,7 @@ function cabecalho(string $titulo): void
                     <?php if ($usuario['perfil'] === 'organizador'): ?>
                         <a href="meus_eventos.php">Meus eventos</a>
                     <?php endif; ?>
+                    <a href="painel.php">Minha área</a>
                     <span class="nav-user"><?= escapar($usuario['nome']) ?></span>
                     <form action="logout.php" method="post">
                         <?php campoCsrf(); ?>
@@ -176,7 +178,7 @@ function rodape(): void
 
 function listarEventos(PDO $pdo, ?int $organizador = null, bool $destaques = false): array
 {
-    $sql = 'SELECT e.*, c.nome AS categoria FROM evento e JOIN categoria c ON c.id_categoria = e.id_categoria';
+    $sql = 'SELECT e.id_evento,e.id_organizador,e.id_categoria,e.titulo,e.descricao,e.data_evento,e.horario_inicio,e.horario_termino,e.carga_horaria,e.modalidade,e.cidade,e.local_evento,e.link,e.status,e.validade_horas,c.nome AS categoria FROM evento e JOIN categoria c ON c.id_categoria = e.id_categoria';
     $parametros = [];
     if ($organizador !== null) {
         $sql .= ' WHERE e.id_organizador = :organizador';

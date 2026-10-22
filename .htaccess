@@ -1,0 +1,4 @@
+Options -Indexes
+RewriteEngine On
+RewriteRule (^|/)(\.[^/]*|tools|tests|docs)(/|$) - [R=404,L]
+RewriteRule \.(sql|md|ini|log|ps1|py|mjs)$ - [R=404,L,NC]

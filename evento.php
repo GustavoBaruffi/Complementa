@@ -1,12 +1,15 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/app.php';
+require_once __DIR__.'/gestao_dados.php';
+require_once __DIR__.'/painel_ui.php';
+$avaliacoes=[];
 $evento = null;
 $erros = [];
 $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 if ($id) {
     try {
-        $consulta = obterConexao()->prepare('SELECT e.*, c.nome AS categoria, o.nome AS organizador
+        $consulta = obterConexao()->prepare('SELECT e.id_evento,e.id_organizador,e.titulo,e.descricao,e.data_evento,e.horario_inicio,e.horario_termino,e.carga_horaria,e.modalidade,e.cidade,e.local_evento,e.link,e.status,e.validade_horas, c.nome AS categoria, o.nome AS organizador
             FROM evento e JOIN categoria c ON c.id_categoria = e.id_categoria
             JOIN organizador o ON o.id_organizador = e.id_organizador
             WHERE e.id_evento = :id');
@@ -23,6 +26,17 @@ if ($id) {
 }
 if (!$evento && !$erros) {
     http_response_code(404);
+}
+if ($evento) {
+    try {
+        if ($_SERVER['REQUEST_METHOD']==='POST') {
+            $u=exigirPerfil('aluno'); verificarCsrf();
+            inscrever(obterConexao(),$u['id'],(int)$evento['id_evento']);
+            $_SESSION['aviso']='Inscrição confirmada.';
+            redirecionar('painel.php?pagina=inscricoes');
+        }
+        $avaliacoes=sql(obterConexao(),'SELECT nota,comentario,data_avaliacao FROM avaliacao WHERE id_evento=? ORDER BY data_avaliacao DESC',[(int)$evento['id_evento']])->fetchAll();
+    } catch (Throwable $e) { $erros[]=erroFluxo($e); }
 }
 cabecalho($evento ? $evento['titulo'] : 'Evento não encontrado');
 ?>
@@ -52,8 +66,16 @@ cabecalho($evento ? $evento['titulo'] : 'Evento não encontrado');
                     </dd>
                 <?php endif; ?>
             </dl>
+            <?php if ((usuario()['perfil'] ?? '')==='aluno' && $evento['status']==='Publicado') { formulario('inscrever'); botao('Inscrever-me'); } ?>
+            <?php if ((usuario()['perfil'] ?? '')==='organizador' && (int)usuario()['id']===(int)$evento['id_organizador']): ?>
+                <a class="button" href="novo_evento.php?id=<?= (int)$evento['id_evento'] ?>">Editar evento</a>
+            <?php endif; ?>
             <h2>Sobre o evento</h2>
             <div class="event-description"><?= escapar($evento['descricao']) ?></div>
+            <h2>Avaliações dos participantes</h2>
+            <?php vazio($avaliacoes); foreach ($avaliacoes as $av): ?>
+                <div class="workflow-card"><?php dado('Nota',$av['nota'].' / 5'); dado('Comentário',$av['comentario']); dado('Data',$av['data_avaliacao']); ?></div>
+            <?php endforeach; ?>
         </article>
     <?php elseif (!$erros): ?>
         <h1>Evento não encontrado</h1><p>Confira o endereço ou consulte a lista de eventos.</p>
