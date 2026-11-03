@@ -1,0 +1,5 @@
+2026/10/20-11:01:09.244 2440 Creating DB C:\Users\gusta\OneDrive\Documentos\Complementa\.test-runtime\browser-cf4daffab748d7cd\profile\Default\EdgeCoupons/coupons_data.db since it was missing.
+2026/10/20-11:01:09.255 2440 Reusing MANIFEST C:\Users\gusta\OneDrive\Documentos\Complementa\.test-runtime\browser-cf4daffab748d7cd\profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/10/20-11:01:09.434 3720 Level-0 table #5: started
+2026/10/20-11:01:09.438 3720 Level-0 table #5: 683273 bytes OK
+2026/10/20-11:01:09.440 3720 Delete type=0 #3
