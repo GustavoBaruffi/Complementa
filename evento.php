@@ -6,10 +6,12 @@ require_once __DIR__.'/painel_ui.php';
 $avaliacoes=[];
 $evento = null;
 $erros = [];
+$inscricaoAluno = null;
+$inscricaoConsultada = false;
 $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 if ($id) {
     try {
-        $consulta = obterConexao()->prepare('SELECT e.id_evento,e.id_organizador,e.titulo,e.descricao,e.data_evento,e.horario_inicio,e.horario_termino,e.carga_horaria,e.modalidade,e.cidade,e.local_evento,e.link,e.status,e.validade_horas, c.nome AS categoria, o.nome AS organizador
+        $consulta = obterConexao()->prepare('SELECT e.id_evento,e.id_organizador,e.titulo,e.descricao,e.data_evento,e.horario_inicio,e.horario_termino,e.carga_horaria,e.modalidade,e.cidade,e.local_evento,e.link,e.status,e.validade_horas,TIMESTAMP(e.data_evento,e.horario_inicio)>NOW() AS futuro, c.nome AS categoria, o.nome AS organizador
             FROM evento e JOIN categoria c ON c.id_categoria = e.id_categoria
             JOIN organizador o ON o.id_organizador = e.id_organizador
             WHERE e.id_evento = :id');
@@ -36,6 +38,12 @@ if ($evento) {
             redirecionar('painel.php?pagina=inscricoes');
         }
         $avaliacoes=sql(obterConexao(),'SELECT nota,comentario,data_avaliacao FROM avaliacao WHERE id_evento=? ORDER BY data_avaliacao DESC',[(int)$evento['id_evento']])->fetchAll();
+    } catch (Throwable $e) { $erros[]=erroFluxo($e); }
+}
+if ($evento && (usuario()['perfil'] ?? '')==='aluno') {
+    try {
+        $inscricaoAluno=sql(obterConexao(),'SELECT i.status,i.presenca,c.id_certificado FROM inscricao i LEFT JOIN certificado c ON c.id_inscricao=i.id_inscricao WHERE i.id_aluno=? AND i.id_evento=?',[usuario()['id'],(int)$evento['id_evento']])->fetch() ?: null;
+        $inscricaoConsultada=true;
     } catch (Throwable $e) { $erros[]=erroFluxo($e); }
 }
 cabecalho($evento ? $evento['titulo'] : 'Evento não encontrado');
@@ -66,7 +74,19 @@ cabecalho($evento ? $evento['titulo'] : 'Evento não encontrado');
                     </dd>
                 <?php endif; ?>
             </dl>
-            <?php if ((usuario()['perfil'] ?? '')==='aluno' && $evento['status']==='Publicado') { formulario('inscrever'); botao('Inscrever-me'); } ?>
+            <?php if ($inscricaoConsultada): ?>
+                <?php if ($inscricaoAluno && $inscricaoAluno['status']!=='Cancelada'): ?>
+                    <p class="event-registration-status">Sua inscrição: <?= escapar($inscricaoAluno['status']) ?>.</p>
+                    <a class="text-link" href="painel.php?pagina=inscricoes">Acompanhar minha inscrição</a>
+                <?php else: ?>
+                    <?php if ($inscricaoAluno): ?><p class="registration-badge">Sua inscrição foi cancelada</p><?php endif; ?>
+                    <?php if ($evento['status']==='Publicado' && $evento['futuro'] && (!$inscricaoAluno || (!$inscricaoAluno['presenca'] && !$inscricaoAluno['id_certificado']))): ?>
+                        <?php formulario('inscrever'); botao($inscricaoAluno?'Inscrever-me novamente':'Inscrever-me'); ?>
+                    <?php else: ?>
+                        <p>Inscrições indisponíveis. Só é possível se inscrever enquanto o evento estiver publicado e não tiver começado.</p>
+                    <?php endif; ?>
+                <?php endif; ?>
+            <?php endif; ?>
             <?php if ((usuario()['perfil'] ?? '')==='organizador' && (int)usuario()['id']===(int)$evento['id_organizador']): ?>
                 <a class="button" href="novo_evento.php?id=<?= (int)$evento['id_evento'] ?>">Editar evento</a>
             <?php endif; ?>

@@ -11,12 +11,12 @@ $perfil = campo('perfil') ?: 'aluno';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificarCsrf();
     $senha = is_string($_POST['senha'] ?? null) ? $_POST['senha'] : '';
-        $perfis = ['aluno' => 'id_aluno', 'organizador' => 'id_organizador', 'equipe' => 'id_usuario', 'instituicao' => 'id_usuario'];
+    $perfis = ['aluno' => 'id_aluno', 'organizador' => 'id_organizador', 'instituicao' => 'id_usuario'];
     if (!isset($perfis[$perfil]) || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150 || $senha === '' || strlen($senha) > 72) {
         $erros[] = 'Confira o perfil, o e-mail e a senha.';
     } else {
         try {
-            $gestao = in_array($perfil, ['equipe','instituicao'], true);
+            $gestao = $perfil === 'instituicao';
             $tabela = $gestao ? 'usuario_gestao' : $perfil;
             $consulta = obterConexao()->prepare("SELECT {$perfis[$perfil]} AS id, nome, senha_hash FROM {$tabela} WHERE email = :email" . ($gestao ? ' AND perfil = :perfil' : ''));
             $consulta->execute($gestao ? ['email'=>$email,'perfil'=>$perfil] : ['email'=>$email]);
@@ -49,7 +49,6 @@ cabecalho('Entrar');
                 <option value="aluno" <?= $perfil === 'aluno' ? 'selected' : '' ?>>Aluno</option>
                 <option value="organizador" <?= $perfil === 'organizador' ? 'selected' : '' ?>>Organizador</option>
                 <option value="instituicao" <?= $perfil === 'instituicao' ? 'selected' : '' ?>>Instituição</option>
-                <option value="equipe" <?= $perfil === 'equipe' ? 'selected' : '' ?>>Equipe</option>
             </select>
             <label for="email">E-mail</label>
             <input id="email" name="email" type="email" autocomplete="username" maxlength="150" required value="<?= escapar($email) ?>">
@@ -58,7 +57,7 @@ cabecalho('Entrar');
             <button class="button" type="submit">Entrar</button>
         </form>
         <p class="form-bottom">É aluno e ainda não tem conta? <a class="text-link" href="cadastro.php">Cadastre-se</a></p>
-        <p>As contas de organizadores são cadastradas pela equipe.</p>
+        <p>Para obter uma conta de organizador ou instituição, entre em contato com o responsável pelo projeto.</p>
     </div>
 </main>
 <?php rodape(); ?>

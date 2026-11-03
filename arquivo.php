@@ -27,6 +27,7 @@ try {
         throw new DomainException('Arquivo indisponível.');
     }
     header('Content-Type: '.$r['mime']);
+    header('Cache-Control: private, no-store');
     header('Content-Disposition: attachment; filename="certificado-'.$id.'.'.$ext.'"');
     header('X-Content-Type-Options: nosniff');
     header("Content-Security-Policy: sandbox; default-src 'none'");

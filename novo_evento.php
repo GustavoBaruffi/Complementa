@@ -102,7 +102,7 @@ cabecalho($editando ? 'Editar evento' : 'Cadastrar evento');
                     <?php endforeach; ?>
                 </select>
                 <label for="descricao">Descrição</label>
-                <textarea id="descricao" name="descricao" rows="7" maxlength="2000" required><?= escapar($dados['descricao']) ?></textarea>
+                <textarea id="descricao" name="descricao" rows="4" maxlength="2000" required><?= escapar($dados['descricao']) ?></textarea>
                 <label for="data_evento">Data do evento</label>
                 <input id="data_evento" name="data_evento" type="date" required value="<?= escapar($dados['data_evento']) ?>">
                 <label for="horario_inicio">Horário de início (Brasília)</label>
@@ -143,7 +143,7 @@ cabecalho($editando ? 'Editar evento' : 'Cadastrar evento');
             <button class="button" type="submit">Excluir evento</button>
         </form>
         <?php endif; ?>
-        <p class="form-bottom"><a class="text-link" href="meus_eventos.php">Voltar aos meus eventos</a></p>
+        <p class="form-bottom"><a class="text-link" href="meus_eventos.php">Voltar aos participantes</a></p>
     </div>
 </main>
 <?php rodape(); ?>

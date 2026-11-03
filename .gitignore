@@ -14,5 +14,8 @@
 Thumbs.db
 Desktop.ini
 
+/.test-runtime/
+__pycache__/
+
 /uploads/certificados/*
 !/uploads/certificados/.gitkeep

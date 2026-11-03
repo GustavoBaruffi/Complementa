@@ -147,8 +147,9 @@ function cabecalho(string $titulo): void
                 <?php if ($usuario): ?>
                     <?php if ($usuario['perfil'] === 'organizador'): ?>
                         <a href="meus_eventos.php">Meus eventos</a>
+                    <?php else: ?>
+                        <a href="painel.php">Minha área</a>
                     <?php endif; ?>
-                    <a href="painel.php">Minha área</a>
                     <span class="nav-user"><?= escapar($usuario['nome']) ?></span>
                     <form action="logout.php" method="post">
                         <?php campoCsrf(); ?>
@@ -178,14 +179,19 @@ function rodape(): void
 
 function listarEventos(PDO $pdo, ?int $organizador = null, bool $destaques = false): array
 {
-    $sql = 'SELECT e.id_evento,e.id_organizador,e.id_categoria,e.titulo,e.descricao,e.data_evento,e.horario_inicio,e.horario_termino,e.carga_horaria,e.modalidade,e.cidade,e.local_evento,e.link,e.status,e.validade_horas,c.nome AS categoria FROM evento e JOIN categoria c ON c.id_categoria = e.id_categoria';
+    $aluno = $organizador === null && (usuario()['perfil'] ?? '') === 'aluno' ? (int)usuario()['id'] : null;
+    $sql = 'SELECT '.($aluno !== null ? 'i.status AS status_inscricao,' : '').'e.id_evento,e.id_organizador,e.id_categoria,e.titulo,e.descricao,e.data_evento,e.horario_inicio,e.horario_termino,e.carga_horaria,e.modalidade,e.cidade,e.local_evento,e.link,e.status,e.validade_horas,c.nome AS categoria FROM evento e JOIN categoria c ON c.id_categoria = e.id_categoria';
     $parametros = [];
+    if ($aluno !== null) {
+        $sql .= ' LEFT JOIN inscricao i ON i.id_evento=e.id_evento AND i.id_aluno=:aluno';
+        $parametros['aluno'] = $aluno;
+    }
     if ($organizador !== null) {
         $sql .= ' WHERE e.id_organizador = :organizador';
         $parametros['organizador'] = $organizador;
     } elseif ($destaques) {
         $sql .= ' WHERE e.status = :status AND TIMESTAMP(e.data_evento, e.horario_inicio) >= :agora';
-        $parametros = ['status' => 'Publicado', 'agora' => date('Y-m-d H:i:s')];
+        $parametros += ['status' => 'Publicado', 'agora' => date('Y-m-d H:i:s')];
     } else {
         $sql .= ' WHERE e.status <> :rascunho';
         $parametros['rascunho'] = 'Rascunho';
@@ -208,9 +214,10 @@ function cardsEventos(array $eventos): void
     echo '<div class="event-grid">';
     foreach ($eventos as $evento) {
         ?>
-        <article class="event-card">
+        <article class="event-card <?= ($evento['status_inscricao'] ?? '')==='Cancelada' ? 'registration-cancelled' : '' ?>">
             <span class="event-category"><?= escapar($evento['categoria']) ?></span>
             <h3><?= escapar($evento['titulo']) ?></h3>
+            <?php if (($evento['status_inscricao'] ?? '')==='Cancelada'): ?><p class="registration-badge">Sua inscrição foi cancelada</p><?php endif; ?>
             <p class="event-detail"><?= escapar(date('d/m/Y', strtotime($evento['data_evento']))) ?> · <?= escapar(substr($evento['horario_inicio'], 0, 5)) ?> às <?= escapar(substr($evento['horario_termino'], 0, 5)) ?></p>
             <p class="event-detail"><?= escapar($evento['modalidade']) ?><?= $evento['cidade'] ? ' · ' . escapar($evento['cidade']) : '' ?></p>
             <p class="event-detail"><?= escapar($evento['local_evento']) ?></p>

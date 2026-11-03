@@ -80,8 +80,15 @@ function inscrever(PDO $pdo, int $aluno, int $evento): void
     transacao($pdo, function () use ($pdo,$aluno,$evento) {
         $e = registro($pdo, 'SELECT status, TIMESTAMP(data_evento,horario_inicio) > NOW() AS futuro FROM evento WHERE id_evento=? FOR UPDATE', [$evento]);
         if ($e['status'] !== 'Publicado' || !$e['futuro']) throw new DomainException('Este evento não recebe inscrições.');
-        if (sql($pdo,'SELECT id_inscricao FROM inscricao WHERE id_aluno=? AND id_evento=?',[$aluno,$evento])->fetch()) {
-            throw new DomainException('Você já possui inscrição neste evento, inclusive se cancelada.');
+        $anterior = sql($pdo,'SELECT id_inscricao,status,presenca FROM inscricao WHERE id_aluno=? AND id_evento=? FOR UPDATE',[$aluno,$evento])->fetch();
+        if ($anterior) {
+            if ($anterior['status'] !== 'Cancelada') throw new DomainException('Você já está inscrito neste evento.');
+            if ($anterior['presenca'] || sql($pdo,'SELECT id_certificado FROM certificado WHERE id_inscricao=?',[$anterior['id_inscricao']])->fetch()) {
+                throw new DomainException('Esta inscrição possui presença ou certificado. Entre em contato com o organizador.');
+            }
+            sql($pdo,"UPDATE inscricao SET status='Confirmada',data_inscricao=NOW() WHERE id_inscricao=?",[$anterior['id_inscricao']]);
+            notificar($pdo,$aluno,'Inscrição reativada','Você se inscreveu novamente no evento. Sua participação está confirmada.');
+            return;
         }
         sql($pdo,"INSERT INTO inscricao (id_aluno,id_evento,data_inscricao,status,presenca) VALUES (?,?,NOW(),'Confirmada',0)",[$aluno,$evento]);
         notificar($pdo,$aluno,'Inscrição confirmada','Sua inscrição no evento foi confirmada.');
@@ -131,6 +138,7 @@ function enviarCertificado(PDO $pdo, int $responsavel, array $dados, array $arqu
 {
     $id = inteiro($dados['id'] ?? null);
     $carga = horas($dados['horas'] ?? null);
+    $enviarInstituicao = escolha($dados['enviar_instituicao'] ?? 'nao',['nao','sim']) === 'sim';
     [$mime,$ext] = validarArquivo($arquivo);
     $diretorio = __DIR__ . '/uploads/certificados';
     if (!is_dir($diretorio) && !mkdir($diretorio, 0750, true) && !is_dir($diretorio)) {
@@ -143,7 +151,7 @@ function enviarCertificado(PDO $pdo, int $responsavel, array $dados, array $arqu
         throw new RuntimeException('Não foi possível armazenar o certificado.');
     }
     try {
-        transacao($pdo,function () use ($pdo,$responsavel,$peloOrganizador,$id,$carga,$mime,$ext,$caminhoRelativo) {
+        transacao($pdo,function () use ($pdo,$responsavel,$peloOrganizador,$id,$carga,$mime,$ext,$caminhoRelativo,$enviarInstituicao) {
             $filtro = $peloOrganizador ? 'e.id_organizador' : 'i.id_aluno';
             $r = registro($pdo,"SELECT i.id_aluno,i.status,i.presenca,e.status AS evento_status,TIMESTAMP(e.data_evento,e.horario_termino)<=NOW() AS encerrado FROM inscricao i JOIN evento e ON e.id_evento=i.id_evento WHERE i.id_inscricao=? AND {$filtro}=? FOR UPDATE",[$id,$responsavel]);
             if ($peloOrganizador && $r['status'] !== 'Concluída') throw new DomainException('O envio pelo organizador exige uma inscrição com situação Concluída.');
@@ -153,8 +161,11 @@ function enviarCertificado(PDO $pdo, int $responsavel, array $dados, array $arqu
             $cert = (int)$pdo->lastInsertId();
             sql($pdo,'INSERT INTO certificado_conteudo (id_certificado,mime,caminho_arquivo) VALUES (?,?,?)',[$cert,$mime,$caminhoRelativo]);
             notificar($pdo,(int)$r['id_aluno'],'Certificado recebido',$peloOrganizador
-                ? 'O organizador enviou seu certificado. Confira o arquivo e envie-o à instituição pela área de Certificados.'
-                : 'Seu certificado foi recebido. Envie-o à instituição pela área de Certificados para validar as horas.');
+                ? 'O organizador enviou seu certificado. O arquivo está disponível na área de Certificados.'
+                : 'Seu certificado foi recebido e está disponível na área de Certificados.');
+            if ($enviarInstituicao) {
+                registrarSolicitacaoHoras($pdo,(int)$r['id_aluno'],$cert,$carga);
+            }
         });
     } catch (Throwable $e) {
         if (is_file($caminho)) {
@@ -168,12 +179,18 @@ function solicitarHoras(PDO $pdo,int $aluno,int $certificado,mixed $horas): void
 {
     $carga = horas($horas);
     transacao($pdo,function () use ($pdo,$aluno,$certificado,$carga) {
-        $r = registro($pdo,'SELECT c.carga_horaria_declarada,a.id_instituicao FROM certificado c JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN aluno a ON a.id_aluno=i.id_aluno WHERE c.id_certificado=? AND a.id_aluno=? FOR UPDATE',[$certificado,$aluno]);
-        if ((float)$carga > (float)$r['carga_horaria_declarada']) throw new DomainException('As horas solicitadas não podem superar as horas do certificado.');
-        if (sql($pdo,'SELECT id_validacao FROM validacao_horas WHERE id_certificado=?',[$certificado])->fetch()) throw new DomainException('Este certificado já foi enviado à instituição.');
-        sql($pdo,"INSERT INTO validacao_horas (id_certificado,id_instituicao,horas_solicitadas,status) VALUES (?,?,?,'Pendente')",[$certificado,$r['id_instituicao'],$carga]);
-        notificar($pdo,$aluno,'Certificado enviado à instituição','Seu certificado e as horas solicitadas foram enviados à sua instituição para análise.');
+        registrarSolicitacaoHoras($pdo,$aluno,$certificado,$carga);
     });
+}
+
+// Compartilha a transação do upload ou do encaminhamento feito pelo aluno.
+function registrarSolicitacaoHoras(PDO $pdo,int $aluno,int $certificado,string $carga): void
+{
+    $r = registro($pdo,'SELECT c.carga_horaria_declarada,a.id_instituicao FROM certificado c JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN aluno a ON a.id_aluno=i.id_aluno WHERE c.id_certificado=? AND a.id_aluno=? FOR UPDATE',[$certificado,$aluno]);
+    if ((float)$carga > (float)$r['carga_horaria_declarada']) throw new DomainException('As horas solicitadas não podem superar as horas do certificado.');
+    if (sql($pdo,'SELECT id_validacao FROM validacao_horas WHERE id_certificado=?',[$certificado])->fetch()) throw new DomainException('Este certificado já foi enviado à instituição.');
+    sql($pdo,"INSERT INTO validacao_horas (id_certificado,id_instituicao,horas_solicitadas,status,data_recebimento) VALUES (?,?,?,'Pendente',NOW())",[$certificado,$r['id_instituicao'],$carga]);
+    notificar($pdo,$aluno,'Certificado enviado à instituição','Seu certificado e as horas solicitadas foram enviados à sua instituição para análise.');
 }
 
 function analisarHoras(PDO $pdo,int $instituicao,array $dados): void

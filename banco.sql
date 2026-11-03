@@ -61,7 +61,7 @@ CREATE TABLE validacao_horas (
  id_validacao INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  id_certificado INT UNSIGNED NOT NULL UNIQUE, id_instituicao INT UNSIGNED NOT NULL,
  horas_solicitadas DECIMAL(4,1) NOT NULL, horas_aprovadas DECIMAL(4,1) NULL,
- status VARCHAR(30) NOT NULL DEFAULT 'Pendente', data_analise DATETIME NULL, observacao VARCHAR(1000) NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'Pendente', data_recebimento DATETIME NULL, data_analise DATETIME NULL, observacao VARCHAR(1000) NULL,
  FOREIGN KEY (id_certificado) REFERENCES certificado(id_certificado),
  FOREIGN KEY (id_instituicao) REFERENCES instituicao(id_instituicao),
  CHECK (horas_solicitadas BETWEEN 0.5 AND 999), CHECK (horas_aprovadas BETWEEN 0 AND 999)
