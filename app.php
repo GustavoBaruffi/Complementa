@@ -170,7 +170,7 @@ function cabecalho(string $titulo): void
 function rodape(): void
 {
     ?>
-    <footer class="site-footer"><div class="container footer-content"><a class="brand" href="index.php"><span class="brand-mark" aria-hidden="true">✓</span><span>Complementa</span></a><p>© 2026 Complementa. Projeto Integrador PUCPR.</p></div></footer>
+    <footer class="site-footer"><div class="container footer-content"><a class="brand" href="index.php"><span class="brand-mark" aria-hidden="true">✓</span><span>Complementa</span></a></div></footer>
     </body>
     </html>
     <?php

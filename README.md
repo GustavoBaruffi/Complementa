@@ -51,6 +51,8 @@ certificados e que a instituição responsável analise e valide as horas.
 - Cadastrar, editar e gerenciar eventos;
 - consultar eventos cadastrados;
 - visualizar os alunos inscritos.
+- enviar certificados individuais aos participantes com inscrição concluída,
+  presença confirmada e evento encerrado.
 
 ### Instituição
 
@@ -281,6 +283,22 @@ embutido do PHP).
   php -S localhost:8000 router.php
   ```
 4. Acesse `http://localhost:8000` no navegador.
+
+### Envio de certificados pelo organizador
+
+Entre com o perfil **Organizador** e acesse **Participantes**. Confirme a
+presença do aluno, selecione a situação **Concluída** e clique em **Atualizar
+participação**. Após o término do evento, o formulário **Enviar certificado ao
+participante** permite anexar um PDF, JPG ou PNG de até 5 MB e informar sua
+carga horária.
+
+O aluno recebe uma notificação e pode baixar o arquivo em **Certificados**.
+Depois de conferir o documento, informa as horas solicitadas e clica em
+**Enviar certificado à instituição**. Somente após essa ação o certificado
+fica disponível para análise da instituição vinculada ao aluno. Cada inscrição aceita um
+certificado; o envio não substitui um arquivo já cadastrado. O organizador só
+pode enviar certificados para participantes dos próprios eventos. Essa função
+utiliza as tabelas existentes e não exige executar novamente `banco.sql`.
 
 As páginas de eventos e a página inicial agora consultam o MySQL. Se a conexão
 falhar, mostram uma mensagem genérica sem expor credenciais. Não há credenciais

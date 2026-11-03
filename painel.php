@@ -18,7 +18,7 @@ try {
         $permitidas=match($pagina) {
             'inscricoes'=>['cancelar','enviar_certificado','avaliar'],
             'certificados'=>['solicitar'], 'notificacoes'=>['ler'], 'perfil'=>['perfil'],
-            'participantes'=>['participante'], 'analises'=>['analisar'],
+            'participantes'=>['participante','enviar_certificado_organizador'], 'analises'=>['analisar'],
             'instituicao','categoria','organizador'=>['salvar','excluir'],default=>[],
         };
         if (!in_array($acao,$permitidas,true)) throw new DomainException('Operação não permitida nesta página.');
@@ -26,6 +26,7 @@ try {
         switch ($acao) {
             case 'cancelar': cancelarInscricao($pdo,$u['id'],$id); break;
             case 'enviar_certificado': enviarCertificado($pdo,$u['id'],$_POST,$_FILES['arquivo'] ?? []); break;
+            case 'enviar_certificado_organizador': enviarCertificado($pdo,$u['id'],$_POST,$_FILES['arquivo'] ?? [],true); break;
             case 'avaliar': avaliar($pdo,$u['id'],$_POST); break;
             case 'solicitar': solicitarHoras($pdo,$u['id'],$id,campo('horas')); break;
             case 'ler':
@@ -51,7 +52,7 @@ try {
             case 'inscricoes':
                 $lista=sql($pdo,'SELECT i.id_inscricao,i.id_evento,i.status,i.presenca,e.titulo,e.data_evento,c.id_certificado,a.id_avaliacao FROM inscricao i JOIN evento e ON e.id_evento=i.id_evento LEFT JOIN certificado c ON c.id_inscricao=i.id_inscricao LEFT JOIN avaliacao a ON a.id_evento=i.id_evento AND a.id_aluno=i.id_aluno WHERE i.id_aluno=? ORDER BY e.data_evento DESC,i.id_inscricao DESC',[$u['id']])->fetchAll(); break;
             case 'certificados':
-                $lista=sql($pdo,'SELECT c.id_certificado,c.carga_horaria_declarada,c.data_envio,c.status,e.titulo,v.id_validacao FROM certificado c JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN evento e ON e.id_evento=i.id_evento LEFT JOIN validacao_horas v ON v.id_certificado=c.id_certificado WHERE i.id_aluno=? ORDER BY c.id_certificado DESC',[$u['id']])->fetchAll(); break;
+                $lista=sql($pdo,'SELECT c.id_certificado,c.carga_horaria_declarada,c.data_envio,c.status,e.titulo,v.id_validacao,v.status AS status_validacao,t.nome AS instituicao FROM certificado c JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN aluno a ON a.id_aluno=i.id_aluno JOIN instituicao t ON t.id_instituicao=a.id_instituicao JOIN evento e ON e.id_evento=i.id_evento LEFT JOIN validacao_horas v ON v.id_certificado=c.id_certificado WHERE i.id_aluno=? ORDER BY c.id_certificado DESC',[$u['id']])->fetchAll(); break;
             case 'horas':
                 $meta=(int)registro($pdo,'SELECT meta_horas FROM aluno WHERE id_aluno=?',[$u['id']])['meta_horas'];
                 $lista=sql($pdo,'SELECT v.id_validacao,v.status,v.horas_solicitadas,v.horas_aprovadas,v.observacao,v.data_analise,e.titulo FROM validacao_horas v JOIN certificado c ON c.id_certificado=v.id_certificado JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN evento e ON e.id_evento=i.id_evento WHERE i.id_aluno=? ORDER BY v.id_validacao DESC',[$u['id']])->fetchAll();
@@ -59,7 +60,7 @@ try {
                 break;
             case 'notificacoes': $lista=sql($pdo,'SELECT id_notificacao,titulo,mensagem,data_criacao,lida FROM notificacao WHERE id_aluno=? ORDER BY id_notificacao DESC',[$u['id']])->fetchAll(); break;
             case 'perfil': $perfil=registro($pdo,'SELECT a.nome,a.email,a.matricula,a.data_nascimento,a.curso,a.cidade,a.meta_horas,t.nome AS instituicao FROM aluno a JOIN instituicao t ON t.id_instituicao=a.id_instituicao WHERE a.id_aluno=?',[$u['id']]); break;
-            case 'participantes': $lista=sql($pdo,'SELECT i.id_inscricao,i.status,i.presenca,a.nome,e.titulo FROM inscricao i JOIN aluno a ON a.id_aluno=i.id_aluno JOIN evento e ON e.id_evento=i.id_evento WHERE e.id_organizador=? ORDER BY e.data_evento DESC,a.nome',[$u['id']])->fetchAll(); break;
+            case 'participantes': $lista=sql($pdo,'SELECT i.id_inscricao,i.status,i.presenca,a.nome,e.titulo,e.carga_horaria,e.status AS evento_status,TIMESTAMP(e.data_evento,e.horario_termino)<=NOW() AS encerrado,c.id_certificado FROM inscricao i JOIN aluno a ON a.id_aluno=i.id_aluno JOIN evento e ON e.id_evento=i.id_evento LEFT JOIN certificado c ON c.id_inscricao=i.id_inscricao WHERE e.id_organizador=? ORDER BY e.data_evento DESC,a.nome',[$u['id']])->fetchAll(); break;
             case 'analises':
                 $conta=registro($pdo,"SELECT id_instituicao FROM usuario_gestao WHERE id_usuario=? AND perfil='instituicao'",[$u['id']]);
                 $lista=sql($pdo,'SELECT v.id_validacao,v.id_certificado,v.status,v.horas_solicitadas,v.horas_aprovadas,v.observacao,a.nome,e.titulo,c.carga_horaria_declarada FROM validacao_horas v JOIN certificado c ON c.id_certificado=v.id_certificado JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN aluno a ON a.id_aluno=i.id_aluno JOIN evento e ON e.id_evento=i.id_evento WHERE v.id_instituicao=? ORDER BY v.id_validacao DESC',[$conta['id_instituicao']])->fetchAll(); break;
@@ -131,9 +132,16 @@ cabecalho($menu[$pagina]);
                     <?php formulario('avaliar',(int)$r['id_evento']); selecionar('nota','Nota',[1=>'1',2=>'2',3=>'3',4=>'4',5=>'5']); campoForm('comentario','Comentário (opcional)','','textarea',1000,false); botao('Enviar avaliação'); ?>
                 <?php endif; ?>
             <?php elseif ($pagina==='certificados'): ?>
-                <?php dado('Situação',$r['status']); dado('Horas declaradas',$r['carga_horaria_declarada']); dado('Enviado em',$r['data_envio']); ?>
+                <?php dado('Horas declaradas',$r['carga_horaria_declarada']); dado('Disponível desde',$r['data_envio']); dado('Instituição',$r['instituicao']); ?>
                 <a class="text-link" href="arquivo.php?id=<?= (int)$r['id_certificado'] ?>">Baixar certificado</a>
-                <?php if (!$r['id_validacao']) { formulario('solicitar',(int)$r['id_certificado']); campoForm('horas','Horas solicitadas',$r['carga_horaria_declarada'],'number'); botao('Solicitar validação'); } ?>
+                <?php if (!$r['id_validacao']): ?>
+                    <p>Este certificado ainda não foi enviado à instituição. Confira o arquivo e informe as horas que deseja validar.</p>
+                    <?php formulario('solicitar',(int)$r['id_certificado']); campoForm('horas','Horas solicitadas',$r['carga_horaria_declarada'],'number'); botao('Enviar certificado à instituição'); ?>
+                <?php else: ?>
+                    <p>Certificado enviado à instituição.</p>
+                    <?php dado('Situação da análise',$r['status_validacao']); ?>
+                    <a class="text-link" href="painel.php?pagina=horas">Acompanhar validação das horas</a>
+                <?php endif; ?>
             <?php elseif ($pagina==='horas'): ?>
                 <?php foreach (['status'=>'Situação','horas_solicitadas'=>'Horas solicitadas','horas_aprovadas'=>'Horas reconhecidas','data_analise'=>'Data da análise','observacao'=>'Observação'] as $c=>$rotulo) dado($rotulo,$r[$c]); ?>
             <?php elseif ($pagina==='notificacoes'): ?>
@@ -141,6 +149,14 @@ cabecalho($menu[$pagina]);
                 if (!$r['lida']) { formulario('ler',(int)$r['id_notificacao']); botao('Marcar como lida'); } ?>
             <?php elseif ($pagina==='participantes'): ?>
                 <?php dado('Aluno',$r['nome']); formulario('participante',(int)$r['id_inscricao']); selecionar('status','Situação',array_combine($estados=['Pendente','Confirmada','Cancelada','Concluída'],$estados),$r['status']); selecionar('presenca','Presença',[0=>'Não confirmada',1=>'Confirmada'],$r['presenca']); botao('Atualizar participação'); ?>
+                <?php if ($r['id_certificado']): ?>
+                    <p>Certificado disponível na área do aluno.</p>
+                <?php elseif ($r['status']==='Concluída' && $r['presenca'] && $r['encerrado'] && !in_array($r['evento_status'],['Rascunho','Cancelado'],true)): ?>
+                    <h3>Enviar certificado ao participante</h3><p>PDF, JPG ou PNG, até 5 MB. O aluno receberá o arquivo e deverá enviá-lo à instituição pela área de Certificados.</p>
+                    <?php formulario('enviar_certificado_organizador',(int)$r['id_inscricao'],true); campoForm('arquivo','Certificado','','file'); campoForm('horas','Carga horária do certificado',$r['carga_horaria'],'number'); botao('Enviar certificado ao aluno'); ?>
+                <?php else: ?>
+                    <p>Para enviar o certificado, aguarde o término de um evento válido, confirme a presença e salve a situação como Concluída.</p>
+                <?php endif; ?>
             <?php elseif ($pagina==='analises'): ?>
                 <?php dado('Aluno',$r['nome']); dado('Situação',$r['status']); dado('Horas declaradas',$r['carga_horaria_declarada']); dado('Horas solicitadas',$r['horas_solicitadas']); ?>
                 <a class="text-link" href="arquivo.php?id=<?= (int)$r['id_certificado'] ?>">Baixar certificado</a>

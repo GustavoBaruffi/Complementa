@@ -127,7 +127,7 @@ function validarArquivo(array $arquivo): array
     return [$mime,$ext];
 }
 
-function enviarCertificado(PDO $pdo, int $aluno, array $dados, array $arquivo): void
+function enviarCertificado(PDO $pdo, int $responsavel, array $dados, array $arquivo, bool $peloOrganizador = false): void
 {
     $id = inteiro($dados['id'] ?? null);
     $carga = horas($dados['horas'] ?? null);
@@ -143,13 +143,18 @@ function enviarCertificado(PDO $pdo, int $aluno, array $dados, array $arquivo): 
         throw new RuntimeException('Não foi possível armazenar o certificado.');
     }
     try {
-        transacao($pdo,function () use ($pdo,$aluno,$id,$carga,$mime,$ext,$caminhoRelativo) {
-            $r = registro($pdo,'SELECT i.status,i.presenca,e.status AS evento_status,TIMESTAMP(e.data_evento,e.horario_termino)<=NOW() AS encerrado FROM inscricao i JOIN evento e ON e.id_evento=i.id_evento WHERE i.id_inscricao=? AND i.id_aluno=? FOR UPDATE',[$id,$aluno]);
+        transacao($pdo,function () use ($pdo,$responsavel,$peloOrganizador,$id,$carga,$mime,$ext,$caminhoRelativo) {
+            $filtro = $peloOrganizador ? 'e.id_organizador' : 'i.id_aluno';
+            $r = registro($pdo,"SELECT i.id_aluno,i.status,i.presenca,e.status AS evento_status,TIMESTAMP(e.data_evento,e.horario_termino)<=NOW() AS encerrado FROM inscricao i JOIN evento e ON e.id_evento=i.id_evento WHERE i.id_inscricao=? AND {$filtro}=? FOR UPDATE",[$id,$responsavel]);
+            if ($peloOrganizador && $r['status'] !== 'Concluída') throw new DomainException('O envio pelo organizador exige uma inscrição com situação Concluída.');
             if (!$r['presenca'] || !$r['encerrado'] || $r['status']==='Cancelada' || in_array($r['evento_status'],['Rascunho','Cancelado'],true)) throw new DomainException('É necessário participar de um evento encerrado e ter presença confirmada.');
+            if (sql($pdo,'SELECT id_certificado FROM certificado WHERE id_inscricao=?',[$id])->fetch()) throw new DomainException('Esta inscrição já possui um certificado.');
             sql($pdo,"INSERT INTO certificado (id_inscricao,arquivo,data_envio,carga_horaria_declarada,status) VALUES (?,?,NOW(),?,'Pendente')",[$id,'certificado.'.$ext,$carga]);
             $cert = (int)$pdo->lastInsertId();
             sql($pdo,'INSERT INTO certificado_conteudo (id_certificado,mime,caminho_arquivo) VALUES (?,?,?)',[$cert,$mime,$caminhoRelativo]);
-            notificar($pdo,$aluno,'Certificado recebido','Seu certificado foi recebido. Solicite a validação das horas na área de certificados.');
+            notificar($pdo,(int)$r['id_aluno'],'Certificado recebido',$peloOrganizador
+                ? 'O organizador enviou seu certificado. Confira o arquivo e envie-o à instituição pela área de Certificados.'
+                : 'Seu certificado foi recebido. Envie-o à instituição pela área de Certificados para validar as horas.');
         });
     } catch (Throwable $e) {
         if (is_file($caminho)) {
@@ -165,8 +170,9 @@ function solicitarHoras(PDO $pdo,int $aluno,int $certificado,mixed $horas): void
     transacao($pdo,function () use ($pdo,$aluno,$certificado,$carga) {
         $r = registro($pdo,'SELECT c.carga_horaria_declarada,a.id_instituicao FROM certificado c JOIN inscricao i ON i.id_inscricao=c.id_inscricao JOIN aluno a ON a.id_aluno=i.id_aluno WHERE c.id_certificado=? AND a.id_aluno=? FOR UPDATE',[$certificado,$aluno]);
         if ((float)$carga > (float)$r['carga_horaria_declarada']) throw new DomainException('As horas solicitadas não podem superar as horas do certificado.');
+        if (sql($pdo,'SELECT id_validacao FROM validacao_horas WHERE id_certificado=?',[$certificado])->fetch()) throw new DomainException('Este certificado já foi enviado à instituição.');
         sql($pdo,"INSERT INTO validacao_horas (id_certificado,id_instituicao,horas_solicitadas,status) VALUES (?,?,?,'Pendente')",[$certificado,$r['id_instituicao'],$carga]);
-        notificar($pdo,$aluno,'Validação solicitada','Sua solicitação foi enviada à instituição.');
+        notificar($pdo,$aluno,'Certificado enviado à instituição','Seu certificado e as horas solicitadas foram enviados à sua instituição para análise.');
     });
 }
 
